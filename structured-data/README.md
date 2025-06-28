@@ -80,11 +80,39 @@ Many tables include jurisdiction-specific columns for:
 - COLLEGE
 - SPECIAL/SPCL (Special Districts)
 
+## Database Infrastructure
+
+### Aurora Serverless PostgreSQL Database
+A development/testing Aurora Serverless PostgreSQL database has been deployed in AWS us-west-2:
+
+- **Database Name**: `map_appraiser`
+- **Engine**: PostgreSQL 15.4 (Aurora Serverless v2)
+- **Scaling**: 0.5 - 4 ACUs (Aurora Capacity Units)
+- **Security**: Private VPC deployment with encryption at rest
+- **Backup**: 7-day retention with automated backups
+
+#### Connection Information
+- **Endpoint**: `map-appraiser-aurora-db-cluster.cluster-cjcydnj4gvc0.us-west-2.rds.amazonaws.com`
+- **Port**: 5432
+- **Username**: postgres
+- **Database**: map_appraiser
+- **VPC**: Private deployment (requires VPC access or bastion host)
+
+#### CloudFormation Templates
+- `aurora-serverless-simple.yaml` - Complete deployment with VPC creation
+- `deploy-aurora-simple.sh` - Deployment script
+- `aurora-serverless-cloudformation.yaml` - Alternative for existing VPC
+- `deploy-aurora.sh` - Alternative deployment script
+
 ## Files in This Directory
 
 - `README.md` - This file
 - `dcad-erd.md` - Detailed Entity Relationship Diagram and table documentation
 - `dcad_table_headers.md` - Raw column headers from each CSV file
+- `aurora-serverless-simple.yaml` - CloudFormation template for Aurora database
+- `deploy-aurora-simple.sh` - Database deployment script
+- `aurora-serverless-cloudformation.yaml` - Alternative CloudFormation template
+- `deploy-aurora.sh` - Alternative deployment script
 
 ## Usage Notes
 
@@ -93,3 +121,4 @@ Many tables include jurisdiction-specific columns for:
 3. Property details are split between residential (RES_DETAIL) and commercial (COM_DETAIL) tables
 4. Multiple exemption tables allow for complex tax exemption scenarios
 5. The TAXABLE_OBJECT table is crucial for linking property components
+6. Database credentials are stored in AWS Secrets Manager for secure access

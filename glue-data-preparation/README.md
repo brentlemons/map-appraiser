@@ -102,18 +102,3 @@ glue-data-preparation/
    aws glue get-job-runs --job-name map-appraiser-shapefile-to-geojson-etl
    ```
 
-## Development
-
-When developing new ETL jobs:
-1. Follow PySpark best practices
-2. Include proper error handling
-3. Add logging for debugging
-4. Document data sources and destinations
-5. Include sample configurations
-
-## Testing
-
-Local testing can be done using:
-- AWS Glue Docker images
-- PySpark local mode
-- Unit tests for transformation logic

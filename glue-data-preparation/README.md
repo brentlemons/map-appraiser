@@ -23,14 +23,34 @@ Processes CSV files from the raw appraisal data bucket and converts each row to 
 **Source:** `s3://map-appraiser-data-raw-appraisal/{year}/*.csv`  
 **Target:** `s3://map-appraiser-data-knowledge-base/appraisal-json/{year}/{table_name}/{record_id}.json`
 
+#### Shapefile to GeoJSON ETL Job (`shapefile_to_geojson_etl.py`)
+Processes shapefiles from the raw GIS data bucket and converts each feature to an individual GeoJSON file for use in a knowledge base.
+
+**Features:**
+- Automatically discovers all folders in the GIS bucket
+- Processes all shapefiles within each folder (two levels deep)
+- Converts each shapefile feature to a separate GeoJSON file
+- Transforms coordinates to WGS84 format with 6 decimal places precision
+- Validates and fixes invalid geometries using shapely's make_valid()
+- Handles multiple encoding formats (UTF-8, Latin1)
+- Robust error handling for geometry validation and file processing
+- Adds metadata fields for tracking
+- Maintains directory structure in the output bucket
+
+**Source:** `s3://map-appraiser-data-raw-gis/{folder}/*.shp`  
+**Target:** `s3://map-appraiser-data-knowledge-base/gis-geojson/{folder}/{shapefile_name}/{feature_id}.geojson`
+
 ## Structure
 
 ```
 glue-data-preparation/
-├── README.md                    # This file
-├── csv_to_json_etl.py          # CSV to JSON conversion ETL job
-├── glue-job-cloudformation.yaml # CloudFormation template for deployment
-└── deploy.sh                    # Deployment script
+├── README.md                              # This file
+├── csv_to_json_etl.py                    # CSV to JSON conversion ETL job
+├── glue-job-cloudformation.yaml          # CloudFormation template for CSV job
+├── deploy.sh                             # Deployment script for CSV job
+├── shapefile_to_geojson_etl.py          # Shapefile to GeoJSON conversion ETL job
+├── shapefile-glue-job-cloudformation.yaml # CloudFormation template for shapefile job
+└── deploy-shapefile-job.sh               # Deployment script for shapefile job
 ```
 
 ## Requirements
@@ -39,6 +59,12 @@ glue-data-preparation/
 - PySpark
 - boto3
 - AWS credentials with appropriate Glue permissions
+
+### Additional Python Libraries (for Shapefile Job)
+- geopandas==0.14.1
+- shapely==2.0.2
+- pyproj==3.6.1
+- fiona==1.9.5
 
 ## Usage
 
@@ -57,6 +83,23 @@ glue-data-preparation/
 3. Check job status:
    ```bash
    aws glue get-job-runs --job-name map-appraiser-csv-to-json-etl
+   ```
+
+### Shapefile Job Deployment
+
+1. Deploy the CloudFormation stack:
+   ```bash
+   ./deploy-shapefile-job.sh
+   ```
+
+2. Run the Glue job manually:
+   ```bash
+   aws glue start-job-run --job-name map-appraiser-shapefile-to-geojson-etl
+   ```
+
+3. Check job status:
+   ```bash
+   aws glue get-job-runs --job-name map-appraiser-shapefile-to-geojson-etl
    ```
 
 ## Development

@@ -88,31 +88,55 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 - **Database Name**: `map_appraiser`
 - **Engine**: PostgreSQL 15.4 (Aurora Serverless v2)
 - **Scaling**: 0.5 - 4 ACUs (Aurora Capacity Units)
-- **Security**: Private VPC deployment with encryption at rest
+- **Security**: VPC deployment with public access restricted to specific IP addresses
 - **Backup**: 7-day retention with automated backups
+- **Access**: Configured for public access with security group restrictions
 
 #### Connection Information
 - **Endpoint**: `map-appraiser-aurora-db-cluster.cluster-cjcydnj4gvc0.us-west-2.rds.amazonaws.com`
 - **Port**: 5432
 - **Username**: postgres
 - **Database**: map_appraiser
-- **VPC**: Private deployment (requires VPC access or bastion host)
+- **Access**: Public access enabled, restricted by security group to authorized IPs only
 
 #### CloudFormation Templates
-- `aurora-serverless-simple.yaml` - Complete deployment with VPC creation
-- `deploy-aurora-simple.sh` - Deployment script
-- `aurora-serverless-cloudformation.yaml` - Alternative for existing VPC
-- `deploy-aurora.sh` - Alternative deployment script
+- `aurora-serverless-simple.yaml` - Basic deployment with VPC creation (private access only)
+- `aurora-serverless-public.yaml` - Deployment with public access configuration
+- `aurora-update-public.yaml` - Update template for enabling public access
+- `aurora-serverless-cloudformation.yaml` - Template for existing VPC deployment
+- `deploy-aurora-simple.sh` - Deployment script for basic setup
+- `deploy-aurora-public.sh` - Deployment script with public access
+- `deploy-aurora-update.sh` - Script to update existing deployment for public access
+- `deploy-aurora.sh` - Alternative deployment script for existing VPC
 
 ## Files in This Directory
 
+### Documentation
 - `README.md` - This file
 - `dcad-erd.md` - Detailed Entity Relationship Diagram and table documentation
 - `dcad_table_headers.md` - Raw column headers from each CSV file
-- `aurora-serverless-simple.yaml` - CloudFormation template for Aurora database
-- `deploy-aurora-simple.sh` - Database deployment script
-- `aurora-serverless-cloudformation.yaml` - Alternative CloudFormation template
-- `deploy-aurora.sh` - Alternative deployment script
+
+### Database Infrastructure
+- `aurora-serverless-simple.yaml` - Basic Aurora deployment with VPC (private access)
+- `aurora-serverless-public.yaml` - Aurora deployment with public access enabled
+- `aurora-update-public.yaml` - Template to update existing deployment for public access
+- `aurora-serverless-cloudformation.yaml` - Aurora deployment for existing VPC
+- `deploy-aurora-simple.sh` - Basic deployment script
+- `deploy-aurora-public.sh` - Public access deployment script
+- `deploy-aurora-update.sh` - Update script for public access
+- `deploy-aurora.sh` - Deployment script for existing VPC
+
+## Important Notes
+
+### Port Configuration
+All CloudFormation templates now explicitly specify `Port: 5432` for the Aurora PostgreSQL cluster. Without this explicit configuration, Aurora may default to port 3306 (MySQL's default) instead of PostgreSQL's standard port 5432.
+
+### Security Configuration
+The database is configured with:
+- Public accessibility enabled but restricted by security group rules
+- Access allowed only from specific IP addresses (configured during deployment)
+- VPC internal access on port 5432
+- All data encrypted at rest
 
 ## Usage Notes
 

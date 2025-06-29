@@ -1,0 +1,315 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Glue ETL Job to load DCAD CSV data into Aurora PostgreSQL database'
+
+Parameters:
+  JobName:
+    Type: String
+    Default: dcad-csv-to-database-etl
+    Description: Name of the Glue ETL job
+    
+  SourceBucket:
+    Type: String
+    Default: map-appraiser-data-raw-appraisal
+    Description: S3 bucket containing the CSV source data
+    
+  DatabaseHost:
+    Type: String
+    Default: map-appraiser-aurora-db-cluster.cluster-cjcydnj4gvc0.us-west-2.rds.amazonaws.com
+    Description: Aurora PostgreSQL database host
+    
+  DatabasePort:
+    Type: String
+    Default: '5432'
+    Description: Database port
+    
+  DatabaseName:
+    Type: String
+    Default: map_appraiser
+    Description: Database name
+    
+  DatabaseUser:
+    Type: String
+    Default: postgres
+    Description: Database user
+    
+  DatabaseSecretName:
+    Type: String
+    Default: aurora-postgres-password
+    Description: AWS Secrets Manager secret containing database password
+    
+  GlueVersion:
+    Type: String
+    Default: '4.0'
+    Description: Glue version to use
+    AllowedValues: ['3.0', '4.0']
+    
+  MaxCapacity:
+    Type: Number
+    Default: 1
+    Description: Maximum capacity for the Glue job (DPUs for pythonshell)
+    MinValue: 0.0625
+    MaxValue: 1
+
+Resources:
+  # IAM Role for Glue Job
+  GlueJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${JobName}-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${SourceBucket}'
+                  - !Sub 'arn:aws:s3:::${SourceBucket}/*'
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DatabaseSecretName}*'
+        - PolicyName: VPCAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:AttachNetworkInterface
+                  - ec2:DetachNetworkInterface
+                Resource: '*'
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/*'
+
+  # Security Group for Glue Job (if VPC access needed)
+  GlueSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${JobName}-sg'
+      GroupDescription: Security group for Glue ETL job
+      VpcId: !Ref GlueVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS outbound for AWS services
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: PostgreSQL database access
+      Tags:
+        - Key: Name
+          Value: !Sub '${JobName}-security-group'
+
+  # Self-referencing ingress rule for Glue communication
+  GlueSecurityGroupIngressRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref GlueSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref GlueSecurityGroup
+      Description: Self-referencing rule for Glue communication
+
+  # Self-referencing egress rule for Glue communication
+  GlueSecurityGroupEgressRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref GlueSecurityGroup
+      IpProtocol: -1
+      DestinationSecurityGroupId: !Ref GlueSecurityGroup
+      Description: Self-referencing rule for Glue communication
+
+  # VPC for Glue Job (minimal setup)
+  GlueVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${JobName}-vpc'
+
+  # Subnet for Glue Job
+  GlueSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GlueVPC
+      CidrBlock: 10.1.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${JobName}-subnet'
+
+  # Internet Gateway for external access
+  GlueInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${JobName}-igw'
+
+  # Attach Internet Gateway to VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref GlueVPC
+      InternetGatewayId: !Ref GlueInternetGateway
+
+  # Route Table for public subnet
+  GlueRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GlueVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${JobName}-route-table'
+
+  # Route to Internet Gateway
+  GlueRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref GlueRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref GlueInternetGateway
+
+  # Associate Route Table with Subnet
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GlueSubnet
+      RouteTableId: !Ref GlueRouteTable
+
+  # VPC Endpoint for S3 access
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref GlueVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref GlueRouteTable
+
+  # Glue Connection for database access
+  GlueConnection:
+    Type: AWS::Glue::Connection
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput:
+        Name: !Sub '${JobName}-database-connection'
+        Description: 'Connection to Aurora PostgreSQL database'
+        ConnectionType: JDBC
+        ConnectionProperties:
+          JDBC_CONNECTION_URL: !Sub 'jdbc:postgresql://${DatabaseHost}:${DatabasePort}/${DatabaseName}'
+          USERNAME: !Ref DatabaseUser
+          PASSWORD: !Sub '{{resolve:secretsmanager:${DatabaseSecretName}:SecretString}}'
+        PhysicalConnectionRequirements:
+          SubnetId: !Ref GlueSubnet
+          SecurityGroupIdList:
+            - !Ref GlueSecurityGroup
+          AvailabilityZone: !GetAtt GlueSubnet.AvailabilityZone
+
+  # Glue ETL Job
+  CSVToDatabaseJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Ref JobName
+      Description: 'ETL job to load DCAD CSV data into Aurora PostgreSQL database'
+      Role: !GetAtt GlueJobRole.Arn
+      GlueVersion: !Ref GlueVersion
+      MaxCapacity: !Ref MaxCapacity
+      Timeout: 2880  # 48 hours
+      MaxRetries: 1
+      Command:
+        Name: pythonshell
+        PythonVersion: '3.9'
+        ScriptLocation: !Sub 's3://aws-glue-assets-${AWS::AccountId}-${AWS::Region}/scripts/csv_to_database_etl.py'
+      DefaultArguments:
+        '--job-language': 'python'
+        '--job-bookmark-option': 'job-bookmark-disable'
+        '--enable-metrics': 'true'
+        '--enable-continuous-cloudwatch-log': 'true'
+        '--SOURCE_BUCKET': !Ref SourceBucket
+        '--DB_SECRET_NAME': !Ref DatabaseSecretName
+        '--DB_HOST': !Ref DatabaseHost
+        '--DB_PORT': !Ref DatabasePort
+        '--DB_NAME': !Ref DatabaseName
+        '--DB_USER': !Ref DatabaseUser
+        '--additional-python-modules': 'psycopg2-binary==2.9.7,pandas==2.0.3'
+      Connections:
+        Connections:
+          - !Ref GlueConnection
+      Tags:
+        Environment: development
+        Project: map-appraiser
+        Component: etl
+
+Outputs:
+  JobName:
+    Description: 'Name of the created Glue job'
+    Value: !Ref CSVToDatabaseJob
+    Export:
+      Name: !Sub '${AWS::StackName}-JobName'
+      
+  JobArn:
+    Description: 'ARN of the created Glue job'
+    Value: !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${JobName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-JobArn'
+      
+  GlueRoleArn:
+    Description: 'ARN of the Glue service role'
+    Value: !GetAtt GlueJobRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GlueRoleArn'
+      
+  DatabaseConnectionName:
+    Description: 'Name of the Glue database connection'
+    Value: !Ref GlueConnection
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseConnection'
+
+  ScriptUploadCommand:
+    Description: 'AWS CLI command to upload the ETL script'
+    Value: !Sub 'aws s3 cp csv_to_database_etl.py s3://aws-glue-assets-${AWS::AccountId}-${AWS::Region}/scripts/'
+      
+  JobRunCommand:
+    Description: 'AWS CLI command to run the ETL job'
+    Value: !Sub 'aws glue start-job-run --job-name ${JobName}'
+    
+  JobRunWithYearCommand:
+    Description: 'AWS CLI command to run the ETL job for specific year'
+    Value: !Sub 'aws glue start-job-run --job-name ${JobName} --arguments="--TARGET_YEAR=2025"'

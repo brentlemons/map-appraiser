@@ -101,7 +101,7 @@ Resources:
       DBClusterIdentifier: !Sub '${AWS::StackName}-cluster'
       Engine: aurora-postgresql
       EngineMode: provisioned
-      EngineVersion: '15.4'
+      EngineVersion: '16.6'
       Port: 5432
       DatabaseName: !Ref DatabaseName
       MasterUsername: !Ref MasterUsername

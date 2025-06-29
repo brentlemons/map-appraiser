@@ -126,6 +126,15 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 - `deploy-aurora-update.sh` - Update script for public access
 - `deploy-aurora.sh` - Deployment script for existing VPC
 
+### Database Schema
+- `sql-scripts/` - Complete database schema implementation
+  - `01_create_schema.sql` - Creates appraisal schema
+  - `02_create_tables.sql` - Creates all 14 tables with primary keys
+  - `03_create_foreign_keys.sql` - Establishes referential integrity
+  - `04_create_indexes.sql` - Performance optimization indexes
+  - `deploy_database.sh` - Master deployment script with verification
+  - `README.md` - Detailed SQL scripts documentation
+
 ## Important Notes
 
 ### Port Configuration
@@ -138,6 +147,35 @@ The database is configured with:
 - VPC internal access on port 5432
 - All data encrypted at rest
 
+## ETL Integration
+
+### CSV to Database ETL Job
+A complete ETL pipeline has been implemented to load CSV data from S3 directly into the Aurora PostgreSQL database:
+
+- **Location**: `../glue-data-preparation/csv_to_database_etl.py`
+- **CloudFormation**: `../glue-data-preparation/csv-to-database-glue-job.yaml`
+- **Deployment**: `../glue-data-preparation/deploy-csv-to-database-job.sh`
+
+**Features:**
+- Automatically processes all available years or targets specific year
+- Maintains data integrity by clearing existing year data before loading
+- Loads tables in dependency order to preserve foreign key relationships
+- Uses AWS Secrets Manager for secure database credential management
+- Includes comprehensive error handling and rollback capabilities
+
+**Usage:**
+```bash
+# Deploy the ETL job
+cd ../glue-data-preparation
+./deploy-csv-to-database-job.sh
+
+# Run for all years
+aws glue start-job-run --job-name dcad-csv-to-database-etl
+
+# Run for specific year
+aws glue start-job-run --job-name dcad-csv-to-database-etl --arguments='{"--TARGET_YEAR":"2025"}'
+```
+
 ## Usage Notes
 
 1. The first row of each CSV contains column headers
@@ -146,3 +184,4 @@ The database is configured with:
 4. Multiple exemption tables allow for complex tax exemption scenarios
 5. The TAXABLE_OBJECT table is crucial for linking property components
 6. Database credentials are stored in AWS Secrets Manager for secure access
+7. ETL job automatically discovers and processes new year folders as they are added to S3

@@ -10,7 +10,7 @@ set -e
 # Configuration
 STACK_NAME="dcad-csv-to-database-etl"
 TEMPLATE_FILE="csv-to-database-glue-job.yaml"
-SCRIPT_FILE="csv_to_database_etl.py"
+SCRIPT_FILE="csv_to_database_etl_v2.py"
 REGION="us-west-2"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -45,10 +45,10 @@ Parameters:
     
   MaxCapacity:
     Type: Number
-    Default: 1
-    Description: Maximum capacity for the Glue job (DPUs for pythonshell)
-    MinValue: 0.0625
-    MaxValue: 1
+    Default: 2
+    Description: Maximum capacity for the Glue job (DPUs for glueetl)
+    MinValue: 2
+    MaxValue: 100
 
 Resources:
   # IAM Role for Glue Job
@@ -117,7 +117,7 @@ Resources:
     Properties:
       GroupName: !Sub '${JobName}-sg'
       GroupDescription: Security group for Glue ETL job
-      VpcId: !Ref GlueVPC
+      VpcId: vpc-0b6198ac5cdb4c1ab
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 443
@@ -127,8 +127,8 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: 0.0.0.0/0
-          Description: PostgreSQL database access
+          DestinationSecurityGroupId: sg-0cb3f978b24e43fd8
+          Description: PostgreSQL database access to Aurora
       Tags:
         - Key: Name
           Value: !Sub '${JobName}-security-group'
@@ -151,77 +151,26 @@ Resources:
       DestinationSecurityGroupId: !Ref GlueSecurityGroup
       Description: Self-referencing rule for Glue communication
 
-  # VPC for Glue Job (minimal setup)
-  GlueVPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.1.0.0/16
-      EnableDnsHostnames: true
-      EnableDnsSupport: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${JobName}-vpc'
-
-  # Subnet for Glue Job
-  GlueSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref GlueVPC
-      CidrBlock: 10.1.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      Tags:
-        - Key: Name
-          Value: !Sub '${JobName}-subnet'
-
-  # Internet Gateway for external access
-  GlueInternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub '${JobName}-igw'
-
-  # Attach Internet Gateway to VPC
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref GlueVPC
-      InternetGatewayId: !Ref GlueInternetGateway
-
-  # Route Table for public subnet
-  GlueRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref GlueVPC
-      Tags:
-        - Key: Name
-          Value: !Sub '${JobName}-route-table'
-
-  # Route to Internet Gateway
-  GlueRoute:
-    Type: AWS::EC2::Route
-    DependsOn: AttachGateway
-    Properties:
-      RouteTableId: !Ref GlueRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref GlueInternetGateway
-
-  # Associate Route Table with Subnet
-  SubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref GlueSubnet
-      RouteTableId: !Ref GlueRouteTable
-
-  # VPC Endpoint for S3 access
+  # VPC Endpoint for S3 access in Aurora VPC
   S3VPCEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      VpcId: !Ref GlueVPC
+      VpcId: vpc-0b6198ac5cdb4c1ab
       ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
       VpcEndpointType: Gateway
       RouteTableIds:
-        - !Ref GlueRouteTable
+        - rtb-0880e3f59b8f6ffcb
+
+  # Add ingress rule to Aurora security group for Glue access
+  AuroraIngressRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: sg-0cb3f978b24e43fd8
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref GlueSecurityGroup
+      Description: Allow Glue ETL job access to Aurora PostgreSQL
 
   # Glue Connection for database access
   GlueConnection:
@@ -237,10 +186,10 @@ Resources:
           USERNAME: !Ref DatabaseUser
           PASSWORD: !Sub '{{resolve:secretsmanager:${DatabaseSecretName}:SecretString}}'
         PhysicalConnectionRequirements:
-          SubnetId: !Ref GlueSubnet
+          SubnetId: subnet-032ce24e76c7a63e5
           SecurityGroupIdList:
             - !Ref GlueSecurityGroup
-          AvailabilityZone: !GetAtt GlueSubnet.AvailabilityZone
+          AvailabilityZone: us-west-2b
 
   # Glue ETL Job
   CSVToDatabaseJob:
@@ -254,21 +203,17 @@ Resources:
       Timeout: 2880  # 48 hours
       MaxRetries: 1
       Command:
-        Name: pythonshell
-        PythonVersion: '3.9'
-        ScriptLocation: !Sub 's3://aws-glue-assets-${AWS::AccountId}-${AWS::Region}/scripts/csv_to_database_etl.py'
+        Name: glueetl
+        PythonVersion: '3'
+        ScriptLocation: !Sub 's3://aws-glue-assets-${AWS::AccountId}-${AWS::Region}/scripts/csv_to_database_etl_v2.py'
       DefaultArguments:
         '--job-language': 'python'
         '--job-bookmark-option': 'job-bookmark-disable'
         '--enable-metrics': 'true'
         '--enable-continuous-cloudwatch-log': 'true'
         '--SOURCE_BUCKET': !Ref SourceBucket
-        '--DB_SECRET_NAME': !Ref DatabaseSecretName
-        '--DB_HOST': !Ref DatabaseHost
-        '--DB_PORT': !Ref DatabasePort
+        '--CONNECTION_NAME': !Ref GlueConnection
         '--DB_NAME': !Ref DatabaseName
-        '--DB_USER': !Ref DatabaseUser
-        '--additional-python-modules': 'psycopg2-binary==2.9.7,pandas==2.0.3'
       Connections:
         Connections:
           - !Ref GlueConnection

@@ -118,6 +118,7 @@ CREATE TABLE taxable_object (
     appraisal_yr INTEGER NOT NULL,
     tax_obj_id VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Primary Key
     CONSTRAINT pk_taxable_object PRIMARY KEY (account_num, appraisal_yr, tax_obj_id)

@@ -58,10 +58,13 @@ map-appraiser/
 
 ### 1. CSV to Database ETL
 Loads structured appraisal data directly into PostgreSQL database:
+- **Job Name**: `dcad-csv-to-database-etl`
+- **Source**: `s3://map-appraiser-data-raw-appraisal/`
+- **Target**: Aurora PostgreSQL (`map_appraiser` database)
 - **Flexibility**: Process all years or target specific year
-- **Data integrity**: Clears existing data before loading
-- **Dependency management**: Loads tables in correct order
-- **Error handling**: Comprehensive rollback capabilities
+- **Data Processing**: Automatic data type conversions, deduplication
+- **Robust Parsing**: Handles complex CSV files with fallback options
+- **VPC Connectivity**: Secure database access through private networking
 
 ### 2. CSV to JSON ETL
 Converts CSV files to individual JSON documents for knowledge base:
@@ -99,10 +102,10 @@ cd glue-data-preparation
 ### 3. Run ETL Jobs
 ```bash
 # Load all data into database
-aws glue start-job-run --job-name dcad-csv-to-database-etl
+aws glue start-job-run --job-name dcad-csv-to-database-etl --region us-west-2
 
 # Process specific year only
-aws glue start-job-run --job-name dcad-csv-to-database-etl --arguments='{"--TARGET_YEAR":"2025"}'
+aws glue start-job-run --job-name dcad-csv-to-database-etl --arguments='{"--TARGET_YEAR":"2019"}' --region us-west-2
 
 # Convert data for knowledge base
 aws glue start-job-run --job-name map-appraiser-csv-to-json-etl

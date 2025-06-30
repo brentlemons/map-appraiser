@@ -33,7 +33,6 @@ Resources:
         '--job-bookmark-option': 'job-bookmark-enable'
         '--enable-metrics': 'true'
         '--enable-continuous-cloudwatch-log': 'true'
-        '--additional-python-modules': 'boto3'
       Connections:
         Connections:
           - !Ref GlueConnectionName

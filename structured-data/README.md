@@ -115,6 +115,8 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 - `README.md` - This file
 - `dcad-erd.md` - Detailed Entity Relationship Diagram and table documentation
 - `dcad_table_headers.md` - Raw column headers from each CSV file
+- `ETL_FIXES.md` - Comprehensive documentation of ETL fixes and improvements
+- `DATA_QUALITY_ANALYSIS.md` - Detailed analysis of data quality issues and foreign key violations
 
 ### Database Infrastructure
 - `aurora-serverless-simple.yaml` - Basic Aurora deployment with VPC (private access)
@@ -129,9 +131,20 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 ### Database Schema
 - `sql-scripts/` - Complete database schema implementation
   - `01_create_schema.sql` - Creates appraisal schema
-  - `02_create_tables.sql` - Creates all 14 tables with primary keys
+  - `02_create_tables.sql` - Creates all 14 tables with primary keys (updated with `updated_at` column for taxable_object)
   - `03_create_foreign_keys.sql` - Establishes referential integrity
   - `04_create_indexes.sql` - Performance optimization indexes
+  - `05_expand_varchar_columns.sql` - Expands specific VARCHAR columns for data compatibility
+  - `06_analyze_varchar_lengths.sql` - Analyzes actual data lengths in VARCHAR columns
+  - `07_optimize_varchar_sizes.sql` - Optimizes VARCHAR sizes based on actual data
+  - `expand_all_varchar_columns.sql` - Expands ALL VARCHAR columns to 500 chars
+  - `drop_all_foreign_keys.sql` - Removes all foreign key constraints
+  - `restore_foreign_keys.sql` - Restores all 13 foreign key constraints
+  - `clean_orphaned_data.sql` - Cleans orphaned records for referential integrity
+  - `complete_foreign_keys.sql` - Completes foreign key implementation with extended timeout
+  - `complete_foreign_keys_fast.sql` - Fast foreign key addition without validation
+  - `purge_2019_data.sql` - Purges specific year data
+  - `purge_all_data.sql` - Purges all data in dependency order
   - `deploy_database.sh` - Master deployment script with verification
   - `README.md` - Detailed SQL scripts documentation
 
@@ -157,11 +170,19 @@ A complete ETL pipeline has been implemented to load CSV data from S3 directly i
 - **Deployment**: `../glue-data-preparation/deploy-csv-to-database-job.sh`
 
 **Features:**
-- Automatically processes all available years or targets specific year
-- Maintains data integrity by clearing existing year data before loading
-- Loads tables in dependency order to preserve foreign key relationships
+- Automatically processes all available years or targets specific year  
+- Comprehensive data type conversions (dates, decimals, integers)
+- Deduplication based on primary keys to prevent duplicates
+- Robust CSV parsing with fallback options for problematic files
+- VPC connectivity for secure database access
 - Uses AWS Secrets Manager for secure database credential management
-- Includes comprehensive error handling and rollback capabilities
+- All 13 foreign key constraints enforced for data integrity
+
+**Current Status:**
+- ✅ Successfully loaded all 7 years of data (2019-2025)
+- ✅ Over 6 million records imported
+- ✅ All foreign key constraints implemented
+- ✅ Data quality issues identified and resolved (0.02% orphaned records cleaned)
 
 **Usage:**
 ```bash
@@ -170,10 +191,10 @@ cd ../glue-data-preparation
 ./deploy-csv-to-database-job.sh
 
 # Run for all years
-aws glue start-job-run --job-name dcad-csv-to-database-etl
+aws glue start-job-run --job-name dcad-csv-to-database-etl --region us-west-2
 
 # Run for specific year
-aws glue start-job-run --job-name dcad-csv-to-database-etl --arguments='{"--TARGET_YEAR":"2025"}'
+aws glue start-job-run --job-name dcad-csv-to-database-etl --arguments='{"--TARGET_YEAR":"2019"}' --region us-west-2
 ```
 
 ## Usage Notes

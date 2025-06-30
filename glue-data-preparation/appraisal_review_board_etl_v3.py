@@ -305,7 +305,8 @@ def main():
         log_message("=" * 50)
         
         # Convert DataFrame back to DynamicFrame
-        dynamic_frame = glueContext.create_dynamic_frame.from_dataframe(
+        from awsglue.dynamicframe import DynamicFrame
+        dynamic_frame = DynamicFrame.fromDF(
             deduplicated_df, 
             glueContext, 
             "transformed_arb_data"

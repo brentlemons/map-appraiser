@@ -16,6 +16,7 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import *
+from pyspark.sql.functions import coalesce
 from pyspark.sql.types import *
 
 # Initialize Glue context
@@ -169,10 +170,17 @@ def add_missing_columns_and_reorder(df):
     date_fields = ["prev_hearing_dt", "hearing_dt", "cert_mail_dt"]
     for field in date_fields:
         if field in df.columns:
+            # First try to parse as date, handling multiple formats
             df = df.withColumn(field,
                 when(col(field).isNull() | (col(field) == "") | (col(field) == "NULL") | 
                      col(field).startswith("1900-01-01"), None)
-                .otherwise(to_date(col(field), "yyyy-MM-dd")))
+                .otherwise(
+                    coalesce(
+                        to_date(col(field), "yyyy-MM-dd"),
+                        to_date(col(field), "yyyy-MM-dd HH:mm:ss"),
+                        to_date(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSS")
+                    )
+                ))
     
     # Add metadata columns
     df = df.withColumn("created_at", current_timestamp())

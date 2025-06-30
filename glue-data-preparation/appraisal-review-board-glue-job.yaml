@@ -5,7 +5,7 @@ Parameters:
   GlueServiceRoleArn:
     Type: String
     Description: 'ARN of the Glue service role with necessary permissions'
-    Default: 'arn:aws:iam::006559585423:role/MapAppraiserGlueServiceRole'
+    Default: 'arn:aws:iam::006559585423:role/dcad-csv-to-database-etl-role'
 
   GlueConnectionName:
     Type: String
@@ -15,7 +15,7 @@ Parameters:
   ScriptLocation:
     Type: String
     Description: 'S3 location of the Glue ETL script'
-    Default: 's3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl.py'
+    Default: 's3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl_v2.py'
 
 Resources:
   AppraisalReviewBoardETLJob:
@@ -30,19 +30,19 @@ Resources:
         PythonVersion: '3'
       DefaultArguments:
         '--job-language': 'python'
-        '--job-bookmark-option': 'job-bookmark-enable'
-        '--enable-metrics': 'true'
-        '--enable-continuous-cloudwatch-log': 'true'
+        '--job-bookmark-option': 'job-bookmark-disable'
+        '--CONNECTION_NAME': !Ref GlueConnectionName
+        '--SOURCE_BUCKET': 'map-appraiser-data-raw-appraisal'
+        '--DB_NAME': 'map_appraiser'
       Connections:
         Connections:
           - !Ref GlueConnectionName
       ExecutionProperty:
         MaxConcurrentRuns: 1
-      MaxRetries: 2
+      MaxRetries: 0
       Timeout: 2880  # 48 hours max timeout
+      MaxCapacity: 2.0
       GlueVersion: '4.0'
-      WorkerType: 'G.1X'
-      NumberOfWorkers: 4
       Tags:
         Project: 'map-appraiser'
         Environment: 'development'

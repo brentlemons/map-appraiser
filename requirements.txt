@@ -1,0 +1,17 @@
+# Python dependencies for map-appraiser project
+
+# Database connectivity
+psycopg2-binary==2.9.9
+
+# AWS SDK
+boto3==1.34.131
+botocore==1.34.131
+
+# JSON handling (built-in, but for reference)
+# json - built-in Python module
+
+# Date/time handling (built-in, but for reference)  
+# datetime - built-in Python module
+
+# Command line argument parsing (built-in, but for reference)
+# argparse - built-in Python module

@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Glue ETL Job for processing Appraisal Review Board CSV data from S3 to Aurora PostgreSQL'
+
+Parameters:
+  GlueServiceRoleArn:
+    Type: String
+    Description: 'ARN of the Glue service role with necessary permissions'
+    Default: 'arn:aws:iam::006559585423:role/MapAppraiserGlueServiceRole'
+
+  GlueConnectionName:
+    Type: String
+    Description: 'Name of the Glue connection for VPC access'
+    Default: 'dcad-csv-to-database-etl-database-connection'
+
+  ScriptLocation:
+    Type: String
+    Description: 'S3 location of the Glue ETL script'
+    Default: 's3://map-appraiser-glue-scripts/appraisal_review_board_etl.py'
+
+Resources:
+  AppraisalReviewBoardETLJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: 'appraisal-review-board-etl'
+      Description: 'ETL job to process appraisal review board data from S3 CSV files to Aurora PostgreSQL'
+      Role: !Ref GlueServiceRoleArn
+      Command:
+        Name: 'glueetl'
+        ScriptLocation: !Ref ScriptLocation
+        PythonVersion: '3'
+      DefaultArguments:
+        '--job-language': 'python'
+        '--job-bookmark-option': 'job-bookmark-enable'
+        '--enable-metrics': 'true'
+        '--enable-continuous-cloudwatch-log': 'true'
+        '--enable-spark-ui': 'true'
+        '--spark-event-logs-path': 's3://map-appraiser-glue-scripts/spark-logs/'
+        '--TempDir': 's3://map-appraiser-glue-scripts/temp/'
+        '--additional-python-modules': 'boto3'
+      Connections:
+        Connections:
+          - !Ref GlueConnectionName
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      MaxRetries: 2
+      Timeout: 2880  # 48 hours max timeout
+      GlueVersion: '4.0'
+      WorkerType: 'G.1X'
+      NumberOfWorkers: 4
+      Tags:
+        Project: 'map-appraiser'
+        Environment: 'development'
+        DataSource: 'appraisal-review-board'
+        Purpose: 'etl-processing'
+
+Outputs:
+  JobName:
+    Description: 'Name of the created Glue ETL job'
+    Value: !Ref AppraisalReviewBoardETLJob
+    Export:
+      Name: !Sub '${AWS::StackName}-JobName'
+
+  JobArn:
+    Description: 'ARN of the created Glue ETL job'
+    Value: !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${AppraisalReviewBoardETLJob}'
+    Export:
+      Name: !Sub '${AWS::StackName}-JobArn'

@@ -164,7 +164,15 @@ def add_missing_columns_and_reorder(df):
             df = df.withColumn(field,
                 when(col(field).isNull() | (col(field) == "") | (col(field) == "NULL") | 
                      col(field).startswith("1900-01-01"), None)
-                .otherwise(to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss")))
+                .otherwise(
+                    coalesce(
+                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss"),
+                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSS"),
+                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSS"),
+                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"),
+                        to_timestamp(col(field), "yyyy-MM-dd")
+                    )
+                ))
     
     # Convert date fields (handle 1900-01-01 as NULL)
     date_fields = ["prev_hearing_dt", "hearing_dt", "cert_mail_dt"]
@@ -299,9 +307,47 @@ def main():
         total_rows = combined_df.count()
         log_message(f"Total combined rows: {total_rows}")
         
-        # Remove duplicates based on primary key (protest_yr, account_num)
-        log_message("Removing duplicates based on primary key...")
-        deduplicated_df = combined_df.dropDuplicates(["protest_yr", "account_num"])
+        # Analyze duplicates before removing them
+        log_message("Analyzing duplicates based on primary key (protest_yr, account_num)...")
+        
+        # Group by primary key to find duplicates
+        duplicate_analysis = combined_df.groupBy("protest_yr", "account_num").count()
+        duplicates_df = duplicate_analysis.filter(col("count") > 1)
+        num_duplicate_keys = duplicates_df.count()
+        
+        if num_duplicate_keys > 0:
+            log_message(f"Found {num_duplicate_keys} duplicate (protest_yr, account_num) combinations")
+            
+            # Show sample of duplicates
+            log_message("Sample of duplicate keys:")
+            duplicates_df.orderBy(col("count").desc()).show(20, truncate=False)
+            
+            # Analyze which files the duplicates come from
+            log_message("Analyzing source of duplicates (active flag distribution):")
+            duplicate_keys = duplicates_df.select("protest_yr", "account_num")
+            duplicates_with_source = combined_df.join(
+                duplicate_keys, 
+                ["protest_yr", "account_num"], 
+                "inner"
+            )
+            
+            source_analysis = duplicates_with_source.groupBy("protest_yr", "active").count()
+            source_analysis.orderBy("protest_yr", "active").show(50, truncate=False)
+            
+            # Count duplicates by year
+            log_message("Duplicate count by year:")
+            duplicates_df.groupBy("protest_yr").agg(
+                count("*").alias("num_duplicate_accounts"),
+                sum("count").alias("total_duplicate_records")
+            ).orderBy("protest_yr").show(truncate=False)
+        else:
+            log_message("No duplicates found!")
+        
+        # Remove duplicates - keep the record from current file (active=true) when there's a duplicate
+        log_message("Removing duplicates (keeping current/active records when duplicated)...")
+        
+        # Sort by active DESC so true comes before false, then dropDuplicates keeps the first
+        deduplicated_df = combined_df.orderBy(col("active").desc()).dropDuplicates(["protest_yr", "account_num"])
         final_rows = deduplicated_df.count()
         
         log_message(f"Rows after deduplication: {final_rows}")

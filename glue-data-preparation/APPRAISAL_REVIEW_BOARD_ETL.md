@@ -9,7 +9,7 @@ This AWS Glue ETL job processes appraisal review board CSV files from S3 and loa
 - **Job Name**: `appraisal-review-board-etl`
 - **Glue Version**: 4.0
 - **Worker Type**: G.1X (4 workers)
-- **Script Location**: `s3://map-appraiser-glue-scripts/appraisal_review_board_etl.py`
+- **Script Location**: `s3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl.py`
 - **IAM Role**: `MapAppraiserGlueServiceRole`
 - **VPC Connection**: `dcad-csv-to-database-etl-database-connection`
 
@@ -76,7 +76,7 @@ cd glue-data-preparation
 ### Manual Deployment
 ```bash
 # Upload script to S3
-aws s3 cp appraisal_review_board_etl.py s3://map-appraiser-glue-scripts/
+aws s3 cp appraisal_review_board_etl.py s3://aws-glue-assets-006559585423-us-west-2/scripts/
 
 # Deploy CloudFormation stack
 aws cloudformation deploy \

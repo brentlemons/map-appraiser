@@ -8,8 +8,8 @@ set -e
 # Configuration
 REGION="us-west-2"
 STACK_NAME="appraisal-review-board-etl-job"
-SCRIPT_BUCKET="map-appraiser-glue-scripts"
-SCRIPT_KEY="appraisal_review_board_etl.py"
+SCRIPT_BUCKET="aws-glue-assets-006559585423-us-west-2"
+SCRIPT_KEY="scripts/appraisal_review_board_etl.py"
 CLOUDFORMATION_TEMPLATE="appraisal-review-board-glue-job.yaml"
 
 echo "=================================================="

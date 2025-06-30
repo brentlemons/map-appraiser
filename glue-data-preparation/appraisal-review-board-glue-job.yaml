@@ -15,7 +15,7 @@ Parameters:
   ScriptLocation:
     Type: String
     Description: 'S3 location of the Glue ETL script'
-    Default: 's3://map-appraiser-glue-scripts/appraisal_review_board_etl.py'
+    Default: 's3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl.py'
 
 Resources:
   AppraisalReviewBoardETLJob:
@@ -33,9 +33,6 @@ Resources:
         '--job-bookmark-option': 'job-bookmark-enable'
         '--enable-metrics': 'true'
         '--enable-continuous-cloudwatch-log': 'true'
-        '--enable-spark-ui': 'true'
-        '--spark-event-logs-path': 's3://map-appraiser-glue-scripts/spark-logs/'
-        '--TempDir': 's3://map-appraiser-glue-scripts/temp/'
         '--additional-python-modules': 'boto3'
       Connections:
         Connections:

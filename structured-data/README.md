@@ -28,13 +28,14 @@ map-appraiser-data-raw-appraisal/
 
 ### Database Schema
 
-The database consists of 14 interconnected tables that track:
+The database consists of 15 interconnected tables that track:
 - Property ownership and addresses
 - Annual appraisal values
 - Residential and commercial property details
 - Land parcels
 - Tax exemptions and abatements
 - Tax Increment Financing (TIF) zones
+- Property tax protests and appeals
 
 For a detailed Entity Relationship Diagram and table descriptions, see [DCAD ERD Documentation](./dcad-erd.md).
 
@@ -63,6 +64,9 @@ For a detailed Entity Relationship Diagram and table descriptions, see [DCAD ERD
 ### Other
 - **TAXABLE_OBJECT**: Links accounts to specific buildings/improvements
 - **ACCOUNT_TIF**: Tax Increment Financing zone information
+
+### Property Tax Protests
+- **APPRAISAL_REVIEW_BOARD**: Property tax protest tracking through ARB process
 
 ## Data Characteristics
 
@@ -117,6 +121,8 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 - `dcad_table_headers.md` - Raw column headers from each CSV file
 - `ETL_FIXES.md` - Comprehensive documentation of ETL fixes and improvements
 - `DATA_QUALITY_ANALYSIS.md` - Detailed analysis of data quality issues and foreign key violations
+- `APPRAISAL_REVIEW_BOARD_ANALYSIS.md` - Analysis of property tax protest data structure and business process
+- `TABLE_HIERARCHY_ANALYSIS.md` - Complete table relationship hierarchy
 
 ### Database Infrastructure
 - `aurora-serverless-simple.yaml` - Basic Aurora deployment with VPC (private access)
@@ -132,6 +138,7 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
 - `sql-scripts/` - Complete database schema implementation
   - `01_create_schema.sql` - Creates appraisal schema
   - `02_create_tables.sql` - Creates all 14 tables with primary keys (updated with `updated_at` column for taxable_object)
+  - `create_appraisal_review_board_table.sql` - Creates appraisal_review_board table for protest tracking
   - `03_create_foreign_keys.sql` - Establishes referential integrity
   - `04_create_indexes.sql` - Performance optimization indexes
   - `05_expand_varchar_columns.sql` - Expands specific VARCHAR columns for data compatibility

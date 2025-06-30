@@ -1,7 +1,7 @@
 # DCAD Appraisal Database Entity Relationship Diagram
 
 ## Overview
-The DCAD (Dallas Central Appraisal District) database contains property appraisal data organized into 14 interconnected tables. The database tracks property information, ownership, values, exemptions, and tax-related data.
+The DCAD (Dallas Central Appraisal District) database contains property appraisal data organized into 15 interconnected tables. The database tracks property information, ownership, values, exemptions, tax-related data, and property tax protests.
 
 ## Core Entities
 
@@ -133,6 +133,26 @@ Minimal table marking accounts with total exemptions.
 
 Tracks TIF zones with base values and percentages by jurisdiction.
 
+### 15. APPRAISAL_REVIEW_BOARD (Property Tax Protests)
+**Primary Key**: `PROTEST_YR`, `ACCOUNT_NUM`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| PROTEST_YR | Integer | Year of the protest |
+| ACCOUNT_NUM | String | Property account number |
+| OWNER_PROTEST_IND | Boolean | Owner protest indicator |
+| MAIL_NAME, MAIL_ADDR_* | String | Mailing address information |
+| PROTEST_*_CDX, PROTEST_*_DT | String/Date | Protest tracking codes and dates |
+| CONSENT_*, RESOLVED_* | String/Date | Resolution tracking |
+| HEARING_DT, HEARING_TM | Date/Time | Hearing scheduling |
+| ARB_PANEL, PREV_ARB_PANEL | String | Panel assignments |
+| NOTIFIED_VAL, NEW_VAL, PANEL_VAL | Currency | Value progression through process |
+| VALUE_PROTEST_IND | Boolean | Value protest indicator (archive only) |
+| NAME, TAXPAYER_REP_ID | String | Representative information (archive only) |
+| ACTIVE | Boolean | Record status flag |
+
+Tracks property tax protests through the Appraisal Review Board process, including protest receipt, hearings, resolutions, and value determinations.
+
 ## Entity Relationships
 
 ```mermaid
@@ -147,6 +167,7 @@ erDiagram
     ACCOUNT_INFO ||--o{ FREEPORT_EXEMPTION : "may have"
     ACCOUNT_INFO ||--o{ TOTAL_EXEMPTION : "may have"
     ACCOUNT_INFO ||--o{ ACCOUNT_TIF : "may have"
+    ACCOUNT_INFO ||--o{ APPRAISAL_REVIEW_BOARD : "may have protests"
     
     TAXABLE_OBJECT ||--o| RES_DETAIL : "describes residential"
     TAXABLE_OBJECT ||--o| COM_DETAIL : "describes commercial"

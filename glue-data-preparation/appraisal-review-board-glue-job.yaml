@@ -15,7 +15,7 @@ Parameters:
   ScriptLocation:
     Type: String
     Description: 'S3 location of the Glue ETL script'
-    Default: 's3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl_v2.py'
+    Default: 's3://aws-glue-assets-006559585423-us-west-2/scripts/appraisal_review_board_etl_v3.py'
 
 Resources:
   AppraisalReviewBoardETLJob:
@@ -36,7 +36,7 @@ Resources:
         '--DB_NAME': 'map_appraiser'
       Connections:
         Connections:
-          - !Ref GlueConnectionName
+          - !Ref GlueConnectionName  # CRITICAL: VPC connection for database access
       ExecutionProperty:
         MaxConcurrentRuns: 1
       MaxRetries: 0

@@ -16,8 +16,9 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import *
-from pyspark.sql.functions import coalesce
+from pyspark.sql.functions import coalesce, row_number
 from pyspark.sql.types import *
+from pyspark.sql.window import Window
 
 # Initialize Glue context
 sc = SparkContext()
@@ -165,12 +166,10 @@ def add_missing_columns_and_reorder(df):
                 when(col(field).isNull() | (col(field) == "") | (col(field) == "NULL") | 
                      col(field).startswith("1900-01-01"), None)
                 .otherwise(
-                    coalesce(
-                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss"),
-                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSS"),
-                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSS"),
-                        to_timestamp(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"),
-                        to_timestamp(col(field), "yyyy-MM-dd")
+                    # Truncate nanoseconds to microseconds (max 6 digits after decimal)
+                    to_timestamp(
+                        regexp_replace(col(field), "(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{6})\\d*", "$1"),
+                        "yyyy-MM-dd HH:mm:ss.SSSSSS"
                     )
                 ))
     
@@ -178,17 +177,45 @@ def add_missing_columns_and_reorder(df):
     date_fields = ["prev_hearing_dt", "hearing_dt", "cert_mail_dt"]
     for field in date_fields:
         if field in df.columns:
-            # First try to parse as date, handling multiple formats
+            # Extract just the date part by truncating at space or taking first 10 chars
             df = df.withColumn(field,
                 when(col(field).isNull() | (col(field) == "") | (col(field) == "NULL") | 
                      col(field).startswith("1900-01-01"), None)
                 .otherwise(
-                    coalesce(
-                        to_date(col(field), "yyyy-MM-dd"),
-                        to_date(col(field), "yyyy-MM-dd HH:mm:ss"),
-                        to_date(col(field), "yyyy-MM-dd HH:mm:ss.SSSSSS")
+                    to_date(
+                        # Extract just the date part (first 10 characters: YYYY-MM-DD)
+                        when(length(col(field)) >= 10, 
+                             substring(col(field), 1, 10))
+                        .otherwise(col(field)),
+                        "yyyy-MM-dd"
                     )
                 ))
+    
+    # Truncate string fields to prevent constraint violations
+    string_fields_with_limits = {
+        "account_num": 50,
+        "mail_name": 255,
+        "mail_addr_l1": 255,
+        "mail_addr_l2": 255,
+        "mail_addr_l3": 255,
+        "mail_city": 100,
+        "mail_state_cd": 10,
+        "mail_zipcode": 20,
+        "exempt_protest_desc": 500,
+        "cert_mail_num": 50,
+        "audio_account_num": 50,
+        "final_order_comment": 1000,
+        "acct_type": 20,
+        "name": 255,
+        "auth_tax_rep_id": 50,
+        "taxpayer_rep_id": 50
+    }
+    
+    for field, max_length in string_fields_with_limits.items():
+        if field in df.columns:
+            df = df.withColumn(field,
+                when(col(field).isNull() | (col(field) == "") | (col(field) == "NULL"), None)
+                .otherwise(substring(col(field), 1, max_length)))
     
     # Add metadata columns
     df = df.withColumn("created_at", current_timestamp())
@@ -353,10 +380,31 @@ def main():
         log_message(f"Rows after deduplication: {final_rows}")
         log_message(f"Duplicates removed: {total_rows - final_rows}")
         
-        # Write to database using Glue's native write capability
+        # Write to database
         log_message("=" * 50)
         log_message("Writing to database")
         log_message("=" * 50)
+        
+        # Validate data before writing
+        log_message("Validating data before write...")
+        log_message(f"Final dataset schema:")
+        deduplicated_df.printSchema()
+        
+        # Check for any null values in primary key columns
+        null_protest_yr = deduplicated_df.filter(col("protest_yr").isNull()).count()
+        null_account_num = deduplicated_df.filter(col("account_num").isNull()).count()
+        log_message(f"Null protest_yr records: {null_protest_yr}")
+        log_message(f"Null account_num records: {null_account_num}")
+        
+        if null_protest_yr > 0 or null_account_num > 0:
+            log_message("ERROR: Found null values in primary key columns!")
+            raise ValueError("Primary key columns cannot be null")
+        
+        # Show sample of data being written
+        log_message("Sample of data being written:")
+        deduplicated_df.select("protest_yr", "account_num", "active", "created_at").show(5, truncate=False)
+        
+        log_message(f"Writing {final_rows} records to database...")
         
         # Convert DataFrame back to DynamicFrame
         from awsglue.dynamicframe import DynamicFrame
@@ -371,11 +419,14 @@ def main():
             frame=dynamic_frame,
             catalog_connection=connection_name,
             connection_options={
+                "database": db_name,
                 "dbtable": "appraisal.appraisal_review_board",
-                "database": db_name
+                "postactions": ""
             },
             transformation_ctx="write_arb_data"
         )
+        
+        log_message(f"✓ Successfully wrote {final_rows} records to database!")
         
         log_message("=" * 50)
         log_message("ETL job completed successfully!")

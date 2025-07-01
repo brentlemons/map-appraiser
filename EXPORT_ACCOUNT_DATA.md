@@ -16,11 +16,11 @@ The `export_account_data.py` script creates comprehensive JSON exports for any a
 
 ```bash
 # Create and activate virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv export_env
+source export_env/bin/activate
 
 # Install Python dependencies
-pip install -r requirements.txt
+pip3 install boto3 psycopg2-binary
 
 # Ensure AWS credentials are configured for Secrets Manager access
 aws configure
@@ -32,7 +32,18 @@ aws configure
 pip install --break-system-packages psycopg2-binary boto3
 ```
 
+### Quick Setup (for existing installations)
+```bash
+# If you already have the virtual environment
+source export_env/bin/activate
+```
+
 ## Usage
+
+**Note**: Activate the virtual environment before running commands:
+```bash
+source export_env/bin/activate
+```
 
 ### Export All Years for an Account
 ```bash
@@ -73,7 +84,10 @@ The exported JSON follows this hierarchical structure:
     "has_commercial_details": false,
     "taxable_objects_count": 7,
     "land_parcels_count": 7,
-    "exemption_records": 14
+    "exemption_records": 14,
+    "appraisal_notices_count": 2,
+    "has_protests": false,
+    "protest_records_count": 0
   },
   "data": {
     "account_info": [...],
@@ -91,6 +105,8 @@ The exported JSON follows this hierarchical structure:
       "multi_owner": [...],
       "account_tif": [...]
     },
+    "appraisal_notices": [...],
+    "appraisal_review_board": [...],
     "property_details": {
       "res_detail": [...],
       "com_detail": [...],
@@ -116,6 +132,8 @@ The exported JSON follows this hierarchical structure:
 - `total_exemption` - Total exemption tracking
 - `multi_owner` - Multiple ownership
 - `account_tif` - Tax increment financing
+- `appraisal_notices` - Annual appraisal notices with detailed exemption amounts
+- `appraisal_review_board` - Property tax protests and ARB proceedings
 
 ### Secondary Dependencies (Tier 2)
 - `res_detail` - Residential property details
@@ -151,7 +169,10 @@ JSON OUTPUT:
     "has_additional_improvements": true,
     "taxable_objects_count": 1,
     "land_parcels_count": 1,
-    "exemption_records": 3
+    "exemption_records": 3,
+    "appraisal_notices_count": 1,
+    "has_protests": false,
+    "protest_records_count": 0
   },
   "data": {
     // ... complete hierarchical data structure

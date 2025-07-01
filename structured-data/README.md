@@ -17,18 +17,26 @@ map-appraiser-data-raw-appraisal/
 ├── DCAD2022_CURRENT/
 ├── DCAD2023_CURRENT/
 ├── DCAD2024_CURRENT/
-└── DCAD2025_CURRENT/
-    ├── ACCOUNT_INFO.CSV
-    ├── ACCOUNT_APPRL_YEAR.CSV
-    ├── RES_DETAIL.CSV
-    ├── COM_DETAIL.CSV
-    ├── LAND.CSV
-    └── ... (14 CSV files total)
+├── DCAD2025_CURRENT/
+│   ├── ACCOUNT_INFO.CSV
+│   ├── ACCOUNT_APPRL_YEAR.CSV
+│   ├── RES_DETAIL.CSV
+│   ├── COM_DETAIL.CSV
+│   ├── LAND.CSV
+│   └── ... (14 CSV files total)
+├── appraisal_review_board/
+│   ├── appraisal_review_board_current.csv
+│   └── appraisal_review_board_archive.csv
+└── appraisal_notices/
+    ├── 2025/
+    │   ├── RES_COM_APPRAISAL_NOTICE_DATA.csv
+    │   └── BPP_APPRAISAL_NOTICE_DATA.csv
+    └── [other years...]
 ```
 
 ### Database Schema
 
-The database consists of 15 interconnected tables that track:
+The database consists of 16 interconnected tables that track:
 - Property ownership and addresses
 - Annual appraisal values
 - Residential and commercial property details
@@ -36,6 +44,7 @@ The database consists of 15 interconnected tables that track:
 - Tax exemptions and abatements
 - Tax Increment Financing (TIF) zones
 - Property tax protests and appeals
+- Appraisal notices with detailed exemption breakdowns
 
 For a detailed Entity Relationship Diagram and table descriptions, see [DCAD ERD Documentation](./dcad-erd.md).
 
@@ -65,8 +74,9 @@ For a detailed Entity Relationship Diagram and table descriptions, see [DCAD ERD
 - **TAXABLE_OBJECT**: Links accounts to specific buildings/improvements
 - **ACCOUNT_TIF**: Tax Increment Financing zone information
 
-### Property Tax Protests
+### Property Tax Protests and Notices
 - **APPRAISAL_REVIEW_BOARD**: Property tax protest tracking through ARB process
+- **APPRAISAL_NOTICES**: Annual appraisal notices with detailed exemption amounts by taxing entity
 
 ## Data Characteristics
 
@@ -139,6 +149,7 @@ A development/testing Aurora Serverless PostgreSQL database has been deployed in
   - `01_create_schema.sql` - Creates appraisal schema
   - `02_create_tables.sql` - Creates all 14 tables with primary keys (updated with `updated_at` column for taxable_object)
   - `create_appraisal_review_board_table.sql` - Creates appraisal_review_board table for protest tracking
+  - `create_appraisal_notices_table.sql` - Creates appraisal_notices table for notice data with detailed exemption amounts
   - `03_create_foreign_keys.sql` - Establishes referential integrity
   - `04_create_indexes.sql` - Performance optimization indexes
   - `05_expand_varchar_columns.sql` - Expands specific VARCHAR columns for data compatibility

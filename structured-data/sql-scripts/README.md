@@ -20,10 +20,14 @@ export PGPASSWORD='your-database-password'
 - Configures search path
 
 ### 2. Table Creation (`02_create_tables.sql`)
-- Creates all 14 tables with appropriate data types
+- Creates all 14 core tables with appropriate data types
 - Defines primary key constraints
 - Adds timestamp columns for audit trails
 - Includes comprehensive column definitions based on CSV analysis
+
+### Additional Tables
+- `create_appraisal_review_board_table.sql` - Creates appraisal_review_board table for protest tracking
+- `create_appraisal_notices_table.sql` - Creates appraisal_notices table with detailed exemption amounts
 
 ### 3. Foreign Keys (`03_create_foreign_keys.sql`)
 - Establishes referential integrity between tables

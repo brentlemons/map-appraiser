@@ -11,7 +11,7 @@ Based on the foreign key relationships and data structure analysis, the DCAD pro
   - This is the anchor table that must exist before any other records can be created
   - Contains fundamental property identification and ownership data
 
-### **Direct Dependencies (10 tables reference account_info):**
+### **Direct Dependencies (12 tables reference account_info):**
 
 All of these tables have foreign key constraints directly to `account_info` using the composite key `(account_num, appraisal_yr)`:
 
@@ -25,6 +25,8 @@ All of these tables have foreign key constraints directly to `account_info` usin
 8. **`freeport_exemption`** - Freeport exemptions for business inventory
 9. **`total_exemption`** - Total exemption tracking across all types
 10. **`account_tif`** - Tax Increment Financing zone information
+11. **`appraisal_review_board`** - Property tax protest tracking through ARB process
+12. **`appraisal_notices`** - Annual appraisal notices with detailed exemption amounts by taxing entity
 
 ### **Secondary Dependencies (3 tables reference taxable_object):**
 

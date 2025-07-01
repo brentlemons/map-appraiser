@@ -63,3 +63,7 @@ env/
 *.key
 *.cert
 *.crt
+
+# Account export data
+account_data*.json
+export_env/

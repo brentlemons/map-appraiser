@@ -210,6 +210,34 @@ class AccountDataExporter:
         
         return other_data
     
+    def get_appraisal_notices(self, account_num, year=None):
+        """Get appraisal notices data"""
+        query = "SELECT * FROM appraisal.appraisal_notices WHERE account_num = %s"
+        params = [account_num]
+        
+        if year:
+            query += " AND appraisal_yr = %s"
+            params.append(year)
+        
+        query += " ORDER BY appraisal_yr DESC, property_type"
+        
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+    
+    def get_appraisal_review_board(self, account_num, year=None):
+        """Get appraisal review board (protest) data"""
+        query = "SELECT * FROM appraisal.appraisal_review_board WHERE account_num = %s"
+        params = [account_num]
+        
+        if year:
+            query += " AND protest_yr = %s"
+            params.append(year)
+        
+        query += " ORDER BY protest_yr DESC"
+        
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+    
     def get_property_details(self, account_num, year=None):
         """Get secondary dependencies (property detail tables)"""
         details = {}
@@ -310,6 +338,10 @@ class AccountDataExporter:
                     for table, rows in self.get_other_direct_dependencies(account_num, year).items()
                 },
                 
+                # New tables (appraisal notices and protests)
+                "appraisal_notices": [dict(row) for row in self.get_appraisal_notices(account_num, year)],
+                "appraisal_review_board": [dict(row) for row in self.get_appraisal_review_board(account_num, year)],
+                
                 # Secondary dependencies
                 "property_details": {
                     table: [dict(row) for row in rows]
@@ -326,6 +358,8 @@ class AccountDataExporter:
             len(data["data"]["land"]),
             sum(len(rows) for rows in data["data"]["exemptions"].values()),
             sum(len(rows) for rows in data["data"]["other"].values()),
+            len(data["data"]["appraisal_notices"]),
+            len(data["data"]["appraisal_review_board"]),
             sum(len(rows) for rows in data["data"]["property_details"].values())
         ])
         
@@ -339,7 +373,10 @@ class AccountDataExporter:
             "has_additional_improvements": len(data["data"]["property_details"]["res_addl"]) > 0,
             "taxable_objects_count": len(data["data"]["taxable_objects"]),
             "land_parcels_count": len(data["data"]["land"]),
-            "exemption_records": sum(len(rows) for rows in data["data"]["exemptions"].values())
+            "exemption_records": sum(len(rows) for rows in data["data"]["exemptions"].values()),
+            "appraisal_notices_count": len(data["data"]["appraisal_notices"]),
+            "has_protests": len(data["data"]["appraisal_review_board"]) > 0,
+            "protest_records_count": len(data["data"]["appraisal_review_board"])
         }
         
         print(f"📊 Export summary:")
@@ -347,6 +384,8 @@ class AccountDataExporter:
         print(f"   Years available: {data['summary']['years_available']}")
         print(f"   Taxable objects: {data['summary']['taxable_objects_count']}")
         print(f"   Land parcels: {data['summary']['land_parcels_count']}")
+        print(f"   Appraisal notices: {data['summary']['appraisal_notices_count']}")
+        print(f"   Protest records: {data['summary']['protest_records_count']}")
         
         return data
 
